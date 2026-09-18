@@ -97,7 +97,7 @@ function TeamMini({ title, team, onChange, accent }) {
               onClick={() => onChange({ ...team, color: c })}
             />
           ))}
-          <label className="color-custom" style={{ background: `conic-gradient(from 0deg, ${team.color}, #fff, ${team.color})` }}>
+          <label className="color-custom" style={{ background: team.color }}>
             <input
               type="color"
               value={/^#[0-9a-fA-F]{6}$/.test(team.color) ? team.color : '#e11d48'}

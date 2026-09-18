@@ -17,20 +17,19 @@ function flushCandidates(map, key, pc) {
 export default function CameraStream({ match, isCreator }) {
   const [running, setRunning] = useState(false)
   const [error, setError] = useState(null)
-  const [waiting, setWaiting] = useState(!isCreator)
   const [viewers, setViewers] = useState(0)
   const [live, setLive] = useState(false)
+  const [localStream, setLocalStream] = useState(null)
+  const [remoteStream, setRemoteStream] = useState(null)
 
   const socketRef = useRef(null)
-  const localStreamRef = useRef(null)
   const pcs = useRef(new Map())
   const pending = useRef(new Map())
-  const remoteCandidatePending = useRef(new Map())
+  const remotePending = useRef(new Map())
   const localVideoRef = useRef(null)
   const remoteVideoRef = useRef(null)
 
   const room = `match:${match.id}`
-
   const send = (event, payload) => socketRef.current?.emit(event, payload)
 
   const closePc = (id) => {
@@ -44,16 +43,27 @@ export default function CameraStream({ match, isCreator }) {
     } catch {}
     pcs.current.delete(id)
     pending.current.delete(id)
-    remoteCandidatePending.current.delete(id)
+    remotePending.current.delete(id)
   }
+
+  useEffect(() => {
+    if (localVideoRef.current && localStream) {
+      localVideoRef.current.srcObject = localStream
+      localVideoRef.current.play().catch(() => {})
+    }
+  }, [localStream, running])
+
+  useEffect(() => {
+    if (remoteVideoRef.current && remoteStream) {
+      remoteVideoRef.current.srcObject = remoteStream
+      remoteVideoRef.current.play().catch(() => {})
+    }
+  }, [remoteStream])
 
   const setupBroadcasterPc = (remoteId) => {
     const pc = new RTCPeerConnection(PC_CONFIG)
     pcs.current.set(remoteId, pc)
-    localStreamRef.current.getTracks().forEach((t) => pc.addTrack(t, localStreamRef.current))
-    pc.onicecandidate = (e) => {
-      if (e.candidate) send('ice', { to: remoteId, candidate: e.candidate })
-    }
+    localStream.getTracks().forEach((t) => pc.addTrack(t, localStream))
     pc.onconnectionstatechange = () => {
       if (['failed', 'closed', 'disconnected'].includes(pc.connectionState)) {
         closePc(remoteId)
@@ -63,25 +73,41 @@ export default function CameraStream({ match, isCreator }) {
     return pc
   }
 
+  const connectToViewer = (remoteId) => {
+    const pc = setupBroadcasterPc(remoteId)
+    pc.onicecandidate = (e) => {
+      if (!e.candidate) return
+      if (pc.remoteDescription) send('ice', { to: remoteId, candidate: e.candidate })
+      else queueCandidate(pending.current, remoteId, e.candidate)
+    }
+    pc.createOffer()
+      .then((offer) => pc.setLocalDescription(offer))
+      .then(() => {
+        send('offer', { to: remoteId, sdp: pc.localDescription })
+        flushCandidates(pending.current, remoteId, pc)
+      })
+      .catch(() => {})
+  }
+
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
         audio: true,
       })
-      localStreamRef.current = stream
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream
-        await localVideoRef.current.play().catch(() => {})
-      }
+      setLocalStream(stream)
+      setRunning(true)
+      setLive(true)
+      setError(null)
 
       const socket = io()
       socketRef.current = socket
       socket.emit('join', { room, role: 'broadcaster' })
 
       socket.on('peers', ({ peers }) => {
-        setViewers(peers.filter((p) => p.role === 'viewer').length)
-        peers.filter((p) => p.role === 'viewer').forEach((p) => connectToViewer(p.id))
+        const viewersList = peers.filter((p) => p.role === 'viewer')
+        setViewers(viewersList.length)
+        viewersList.forEach((p) => connectToViewer(p.id))
       })
 
       socket.on('peer-joined', ({ id, role }) => {
@@ -102,17 +128,13 @@ export default function CameraStream({ match, isCreator }) {
         const pc = pcs.current.get(from)
         if (!pc) return
         if (pc.remoteDescription) pc.addIceCandidate(candidate).catch(() => {})
-        else queueCandidate(remoteCandidatePending.current, from, candidate)
+        else queueCandidate(remotePending.current, from, candidate)
       })
 
       socket.on('peer-left', ({ id }) => {
         closePc(id)
         setViewers((v) => Math.max(0, v - 1))
       })
-
-      setRunning(true)
-      setLive(true)
-      setError(null)
     } catch (e) {
       setError(
         e?.name === 'NotAllowedError'
@@ -124,37 +146,23 @@ export default function CameraStream({ match, isCreator }) {
     }
   }
 
-  const connectToViewer = (remoteId) => {
-    const pc = setupBroadcasterPc(remoteId)
-    pc.createOffer()
-      .then((offer) => pc.setLocalDescription(offer))
-      .then(() => {
-        send('offer', { to: remoteId, sdp: pc.localDescription })
-        flushCandidates(pending.current, remoteId, pc)
-      })
-      .catch(() => {})
-    pc.onicecandidate = (e) => {
-      if (e.candidate) {
-        if (pc.remoteDescription) send('ice', { to: remoteId, candidate: e.candidate })
-        else queueCandidate(pending.current, remoteId, e.candidate)
-      }
-    }
-  }
-
   const stopCamera = () => {
-    localStreamRef.current?.getTracks().forEach((t) => t.stop())
+    localStream?.getTracks().forEach((t) => t.stop())
     const ids = [...pcs.current.keys()]
     ids.forEach(closePc)
     socketRef.current?.disconnect()
     socketRef.current = null
-    localStreamRef.current = null
+    setLocalStream(null)
+    setRemoteStream(null)
     if (localVideoRef.current) localVideoRef.current.srcObject = null
+    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null
     setRunning(false)
     setLive(false)
     setViewers(0)
   }
 
-  // --- Viewer side ---
+  useEffect(() => () => stopCamera(), [])
+
   useEffect(() => {
     if (isCreator || !match.id) return
 
@@ -168,10 +176,8 @@ export default function CameraStream({ match, isCreator }) {
       if (!pc) {
         pc = new RTCPeerConnection(PC_CONFIG)
         pc.ontrack = (e) => {
-          if (remoteVideoRef.current) {
-            remoteVideoRef.current.srcObject = e.streams[0]
-            remoteVideoRef.current.play().catch(() => {})
-            setWaiting(false)
+          if (e.streams[0]) {
+            setRemoteStream(e.streams[0])
             setLive(true)
           }
         }
@@ -186,7 +192,7 @@ export default function CameraStream({ match, isCreator }) {
       }
       pc.setRemoteDescription(sdp)
         .then(() => {
-          flushCandidates(remoteCandidatePending.current, from, pc)
+          flushCandidates(remotePending.current, from, pc)
           return pc.createAnswer()
         })
         .then((answer) => pc.setLocalDescription(answer))
@@ -196,13 +202,12 @@ export default function CameraStream({ match, isCreator }) {
 
     socket.on('ice', ({ from, candidate }) => {
       if (pc?.remoteDescription) pc.addIceCandidate(candidate).catch(() => {})
-      else queueCandidate(remoteCandidatePending.current, from, candidate)
+      else queueCandidate(remotePending.current, from, candidate)
     })
 
-    socket.on('peer-left', ({ id }) => {
-      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null
+    socket.on('peer-left', () => {
+      setRemoteStream(null)
       setLive(false)
-      setWaiting(true)
     })
 
     return () => {
@@ -215,8 +220,6 @@ export default function CameraStream({ match, isCreator }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCreator, match.id])
-
-  useEffect(() => () => stopCamera(), [])
 
   if (isCreator) {
     return (
@@ -245,7 +248,7 @@ export default function CameraStream({ match, isCreator }) {
           </button>
         ) : (
           <div className="cam-actions">
-            <button type="button" className="btn-ghost" onClick={stopCamera}>
+            <button type="button" className="btn-ghost cam-stop" onClick={stopCamera}>
               ■ Finalizar directo
             </button>
           </div>
@@ -258,15 +261,16 @@ export default function CameraStream({ match, isCreator }) {
     <div className="cam-panel">
       <div className="cam-stage">
         <div className="cam-preview-wrap">
-          {live ? (
-            <video ref={remoteVideoRef} className="cam-video" playsInline autoPlay controls />
-          ) : (
+          <video ref={remoteVideoRef} className="cam-video" playsInline autoPlay controls />
+          <div className={`cam-cover ${live ? 'hidden' : ''}`}>
             <div className="cam-placeholder">
               <span className="cam-placeholder-icon">⏳</span>
-              <p>{waiting ? 'Esperando que el organizador active la cámara…' : 'Cargando transmisión…'}</p>
-              <small>Si no aparece en unos segundos, entrá directo desde un enlace si lo compartieron.</small>
+              <p>
+                {remoteStream || live ? 'Cargando transmisión…' : 'Esperando que el organizador active la cámara…'}
+              </p>
+              <small>Si no aparece en unos segundos, fijate de recargar la página.</small>
             </div>
-          )}
+          </div>
         </div>
       </div>
       {error && <p className="cam-error">{error}</p>}
