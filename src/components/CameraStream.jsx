@@ -14,7 +14,7 @@ function flushCandidates(map, key, pc) {
   list.forEach((c) => pc.addIceCandidate(c).catch(() => {}))
 }
 
-export default function CameraStream({ match, isCreator }) {
+export default function CameraStream({ match, isCreator, onModeChange }) {
   const [running, setRunning] = useState(false)
   const [error, setError] = useState(null)
   const [viewers, setViewers] = useState(0)
@@ -99,6 +99,7 @@ export default function CameraStream({ match, isCreator }) {
       setRunning(true)
       setLive(true)
       setError(null)
+      onModeChange?.('camera')
 
       const socket = io()
       socketRef.current = socket

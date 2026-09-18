@@ -207,6 +207,11 @@ export default function App() {
     saveMatch(next)
   }
 
+  const handleSync = (patch) => {
+    if (!patch) return
+    setMatch((prev) => (prev ? { ...prev, ...patch } : prev))
+  }
+
   if (loading) {
     return (
       <div className="loader-page">
@@ -228,6 +233,7 @@ export default function App() {
         onReopen={handleReopen}
         onLogout={handleLogout}
         onModeChange={handleModeChange}
+        onSync={handleSync}
       />
     )
   }

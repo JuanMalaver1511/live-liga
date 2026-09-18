@@ -222,6 +222,7 @@ app.post('/api/matches/:id/reopen', authRequired, async (req, res) => {
 /* ---------------- Señalización WebRTC ---------------- */
 
 const rooms = new Map()
+const roomMode = new Map()
 
 function peersOf(room) {
   if (!rooms.has(room)) rooms.set(room, new Map())
@@ -235,6 +236,10 @@ io.on('connection', (socket) => {
     socket.data.role = role
     const peers = peersOf(room)
     peers.set(socket.id, role)
+
+    if (roomMode.has(room)) {
+      socket.emit('stream-mode', { mode: roomMode.get(room) })
+    }
 
     socket.emit('peers', {
       peers: [...peers.entries()]
@@ -251,7 +256,14 @@ io.on('connection', (socket) => {
 
   socket.on('stream-mode', ({ room, mode }) => {
     if (mode !== 'link' && mode !== 'camera') return
+    roomMode.set(room, mode)
     socket.to(room).emit('stream-mode', { mode })
+  })
+
+  socket.on('score', ({ room, patch }) => {
+    patch = patch || {}
+    if (typeof patch.homeScore !== 'number' && typeof patch.awayScore !== 'number' && !patch.status) return
+    socket.to(room).emit('score', { patch })
   })
 
   socket.on('disconnect', () => {

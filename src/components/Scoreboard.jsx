@@ -38,6 +38,7 @@ export default function Scoreboard({
   onReopen,
   onLogout,
   onModeChange,
+  onSync,
 }) {
   const [copied, setCopied] = useState(false)
   const [mode, setMode] = useState(() => match.streamMode || 'link')
@@ -53,6 +54,7 @@ export default function Scoreboard({
     socket.emit('join', { room, role: isCreator ? 'organizer' : 'watcher' })
     if (!isCreator) {
       socket.on('stream-mode', ({ mode: m }) => setMode(m))
+      socket.on('score', ({ patch }) => onSync?.(patch))
     }
     return () => {
       socket.disconnect()
@@ -67,6 +69,16 @@ export default function Scoreboard({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, isCreator])
+
+  useEffect(() => {
+    if (isCreator && modeSocketRef.current) {
+      modeSocketRef.current.emit('score', {
+        room,
+        patch: { homeScore: match.homeScore, awayScore: match.awayScore, status: match.status },
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCreator, match.homeScore, match.awayScore, match.status])
 
   const selectMode = (m) => {
     setMode(m)
@@ -200,7 +212,7 @@ export default function Scoreboard({
         )}
 
         {mode === 'camera' ? (
-          <CameraStream match={match} isCreator={isCreator} />
+          <CameraStream match={match} isCreator={isCreator} onModeChange={selectMode} />
         ) : (
           <StreamPlayer
             url={match.streamUrl}
