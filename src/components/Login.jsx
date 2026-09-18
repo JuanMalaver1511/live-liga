@@ -1,20 +1,21 @@
 import { useState } from 'react'
 
 export default function Login({ onLogin }) {
-  const [pin, setPin] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [link, setLink] = useState('')
   const [tab, setTab] = useState('organizador')
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
 
-  const submitPin = async (e) => {
+  const submitLogin = async (e) => {
     e.preventDefault()
-    if (!pin.trim()) return
+    if (!email.trim() || !password) return
     setBusy(true)
     setError(null)
-    const ok = await onLogin(pin.trim())
+    const ok = await onLogin(email.trim(), password)
     setBusy(false)
-    if (!ok) setError('Código incorrecto. Probá de nuevo.')
+    if (!ok) setError('Email o contraseña incorrectos. Probá de nuevo.')
   }
 
   const submitLink = (e) => {
@@ -22,13 +23,13 @@ export default function Login({ onLogin }) {
     if (!link.trim()) return
     try {
       const url = new URL(link.trim())
-      if (url.pathname.includes('?m=') || url.searchParams.has('m')) {
+      if (url.pathname.includes('?id=') || url.searchParams.has('id')) {
         window.location.href = url.href
         return
       }
       setError('Ese enlace no parece un enlace de Liga Live.')
     } catch {
-      setError('Pegá el enlace completo de compartir (incluye el código).')
+      setError('Pegá el enlace completo de compartir.')
     }
   }
 
@@ -65,37 +66,46 @@ export default function Login({ onLogin }) {
         </div>
 
         {tab === 'organizador' ? (
-          <form className="login-form" onSubmit={submitPin}>
-            <h2>Crear partidos y transmitir</h2>
+          <form className="login-form" onSubmit={submitLogin}>
+            <h2>Bienvenido, organizador</h2>
             <p className="login-desc">
-              Ingresá tu código de organización para crear partidos, manejar el marcador e iniciar el directo con cámara.
+              Iniciá sesión para crear partidos, manejar el marcador, transmitir con cámara y guardar resultados.
             </p>
             <label className="field">
-              <span>Código de organización</span>
+              <span>Email</span>
+              <input
+                type="email"
+                autoComplete="username"
+                placeholder="organizador@live.com"
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); setError(null) }}
+                disabled={busy}
+              />
+            </label>
+            <label className="field">
+              <span>Contraseña</span>
               <input
                 type="password"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                placeholder="••••"
-                value={pin}
-                maxLength={8}
-                onChange={(e) => { setPin(e.target.value); setError(null) }}
+                autoComplete="current-password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => { setPassword(e.target.value); setError(null) }}
                 disabled={busy}
               />
             </label>
             {error && <p className="cam-error login-error">{error}</p>}
-            <button type="submit" className="btn-primary" disabled={busy || !pin.trim()}>
+            <button type="submit" className="btn-primary" disabled={busy || !email.trim() || !password}>
               {busy ? 'Verificando…' : 'Ingresar'}
             </button>
             <p className="login-note">
-              El código lo configurás en Railway con la variable <code>ORGANIZER_PIN</code>.
+              Si querés cambiar las credenciales, usá <code>ADMIN_EMAIL</code> y <code>ADMIN_PASSWORD</code> en Railway.
             </p>
           </form>
         ) : (
           <form className="login-form" onSubmit={submitLink}>
             <h2>Ver un partido en vivo</h2>
             <p className="login-desc">
-              Pegá el enlace de compartir que te mandó el organizador y entrás directo al marcador.
+              Pegá el enlace de compartir que te mandó el organizador y entrás directo al marcador con el resultado guardado.
             </p>
             <label className="field">
               <span>Enlace del partido</span>
@@ -103,7 +113,7 @@ export default function Login({ onLogin }) {
                 <span className="input-icon-sym">🔗</span>
                 <input
                   type="url"
-                  placeholder="https://…ligalive…?m=…"
+                  placeholder="https://…?id=…"
                   value={link}
                   onChange={(e) => { setLink(e.target.value); setError(null) }}
                 />

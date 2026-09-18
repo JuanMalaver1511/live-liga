@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import StreamPlayer from './StreamPlayer.jsx'
 import CameraStream from './CameraStream.jsx'
-import { encodeMatch } from '../App.jsx'
 
-function TeamSide({ team, score, side, isCreator, onScore }) {
+function TeamSide({ team, score, side, isCreator, finished, onScore }) {
   return (
     <div className={`team-side ${side}`} style={{ '--team': team.color }}>
       <span className="team-stripe" aria-hidden="true" style={{ background: team.color }} />
@@ -13,11 +12,11 @@ function TeamSide({ team, score, side, isCreator, onScore }) {
       <h1 className="team-name">{team.name}</h1>
       <div className="score-wrap">
         <span className="score-num" key={score}>{String(score).padStart(2, '0')}</span>
-        {isCreator && (
+        {isCreator && !finished && (
           <button type="button" className="score-btn plus" aria-label="Sumar gol" onClick={() => onScore(side, 1)}>+</button>
         )}
       </div>
-      {isCreator && (
+      {isCreator && !finished && (
         <div className="score-controls">
           <button type="button" className="ctrl" aria-label="Restar gol" onClick={() => onScore(side, -1)}>−</button>
           <span>gol</span>
@@ -28,14 +27,23 @@ function TeamSide({ team, score, side, isCreator, onScore }) {
   )
 }
 
-export default function Scoreboard({ match, onScore, isCreator, onEdit, onReset, onLogout }) {
+export default function Scoreboard({
+  match,
+  onScore,
+  isCreator,
+  onEdit,
+  onReset,
+  onFinish,
+  onReopen,
+  onLogout,
+}) {
   const [copied, setCopied] = useState(false)
   const [mode, setMode] = useState('link')
 
-  const shareUrl = () => {
-    const { currentId, ...shareable } = match
-    return `${window.location.origin}${window.location.pathname}?m=${encodeMatch(shareable)}`
-  }
+  const finished = match.status === 'finalizado'
+
+  const shareUrl = () =>
+    `${window.location.origin}${window.location.pathname}?id=${encodeURIComponent(match.id)}`
 
   const handleShare = async () => {
     try {
@@ -75,9 +83,16 @@ export default function Scoreboard({ match, onScore, isCreator, onEdit, onReset,
 
       <section className="live-hero" style={{ '--hero1': match.home.color, '--hero2': match.away.color }}>
         <div className="tournament-band">
-          <span className="live-pill"><span className="live-pill-dot" /> EN VIVO</span>
+          {finished ? (
+            <span className="live-pill final"><span className="final-dot" /> FINAL</span>
+          ) : (
+            <span className="live-pill"><span className="live-pill-dot" /> EN VIVO</span>
+          )}
           <h2 className="tournament-name">{match.tournament}</h2>
-          {match.matchTitle && <span className="match-title">{match.matchTitle}</span>}
+          <div className="match-meta">
+            {match.matchTitle && <span className="match-title">{match.matchTitle}</span>}
+            {finished && <span className="result-chip">Resultado final</span>}
+          </div>
           <time className="match-date">{fmtDate()}</time>
         </div>
 
@@ -87,6 +102,7 @@ export default function Scoreboard({ match, onScore, isCreator, onEdit, onReset,
             score={match.homeScore}
             side="home"
             isCreator={isCreator}
+            finished={finished}
             onScore={onScore}
           />
           <div className="score-divider">:</div>
@@ -95,10 +111,24 @@ export default function Scoreboard({ match, onScore, isCreator, onEdit, onReset,
             score={match.awayScore}
             side="away"
             isCreator={isCreator}
+            finished={finished}
             onScore={onScore}
           />
         </div>
-        {isCreator && <p className="creator-tip">Tocá los botones para sumar goles al marcador en vivo ⚽</p>}
+
+        {isCreator && !finished && (
+          <div className="creator-actions">
+            <p className="creator-tip">Tocá los botones para sumar goles al marcador en vivo ⚽</p>
+            <button type="button" className="btn-finish" onClick={onFinish}>
+              🏁 Finalizar partido y guardar resultado
+            </button>
+          </div>
+        )}
+        {isCreator && finished && (
+          <div className="creator-actions">
+            <button type="button" className="btn-ghost" onClick={onReopen}>↩ Reabrir partido</button>
+          </div>
+        )}
       </section>
 
       <main className="stream-section">
