@@ -107,7 +107,9 @@ export default function CreateMatch({ match, onStart }) {
 
       <form className="setup-card" onSubmit={handleSubmit}>
         <h2 className="setup-title">Armá tu transmisión</h2>
+        <p className="setup-subtitle">Completá los datos del encuentro y en un clic vas al marcador en vivo con tu video.</p>
 
+        <div className="section-label">Partido</div>
         <div className="grid-2">
           <label className="field">
             <span>Nombre del campeonato / torneo</span>
@@ -138,14 +140,16 @@ export default function CreateMatch({ match, onStart }) {
           />
         </label>
 
+        <div className="section-label">Equipos</div>
         <div className="teams-grid">
           <TeamEditor label="Equipo local" team={form.home} onChange={setHome} />
           <div className="vs-divider">VS</div>
           <TeamEditor label="Equipo visitante" team={form.away} onChange={setAway} />
         </div>
 
+        <div className="section-label">Transmisión en vivo</div>
         <label className="field">
-          <span>Link de la transmisión en vivo</span>
+          <span>Link de la transmisión</span>
           <div className="input-icon">
             <span className="input-icon-sym">🔗</span>
             <input

@@ -5,21 +5,22 @@ import { encodeMatch } from '../App.jsx'
 function TeamSide({ team, score, side, isCreator, onScore }) {
   return (
     <div className={`team-side ${side}`} style={{ '--team': team.color }}>
+      <span className="team-stripe" aria-hidden="true" style={{ background: team.color }} />
       <button type="button" className="shield-btn" aria-label={`Escudo ${team.name}`}>
         <span className="team-shield">{team.emoji}</span>
       </button>
       <h1 className="team-name">{team.name}</h1>
       <div className="score-wrap">
-        <span className="score-num">{String(score).padStart(2, '0')}</span>
+        <span className="score-num" key={score}>{String(score).padStart(2, '0')}</span>
         {isCreator && (
-          <button type="button" className="score-btn plus" onClick={() => onScore(side, 1)}>+</button>
+          <button type="button" className="score-btn plus" aria-label="Sumar gol" onClick={() => onScore(side, 1)}>+</button>
         )}
       </div>
       {isCreator && (
         <div className="score-controls">
-          <button type="button" className="ctrl" onClick={() => onScore(side, -1)}>−</button>
+          <button type="button" className="ctrl" aria-label="Restar gol" onClick={() => onScore(side, -1)}>−</button>
           <span>gol</span>
-          <button type="button" className="ctrl" onClick={() => onScore(side, 1)}>+</button>
+          <button type="button" className="ctrl" aria-label="Sumar gol" onClick={() => onScore(side, 1)}>+</button>
         </div>
       )}
     </div>
@@ -77,7 +78,7 @@ export default function Scoreboard({ match, onScore, isCreator, onEdit, onReset 
           <time className="match-date">{fmtDate()}</time>
         </div>
 
-        <div className="scoreboard-card">
+        <div className="scoreboard-card" style={{ '--hero1': match.home.color, '--hero2': match.away.color }}>
           <TeamSide
             team={match.home}
             score={match.homeScore}
