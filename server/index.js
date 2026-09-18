@@ -44,7 +44,15 @@ app.post('/api/logout', authRequired, (req, res) => {
 })
 
 app.get('/api/config', (_req, res) => {
-  res.json({ adminEmail: ADMIN_EMAIL })
+  res.json({
+    adminEmail: ADMIN_EMAIL,
+    turn: {
+      host: process.env.TURN_HOST || '',
+      port: process.env.TURN_PORT || '3478',
+      username: process.env.TURN_USERNAME || '',
+      password: process.env.TURN_PASSWORD || '',
+    },
+  })
 })
 
 /* ---------------- Base de datos ---------------- */

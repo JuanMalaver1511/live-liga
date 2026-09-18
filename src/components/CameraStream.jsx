@@ -1,20 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { io } from 'socket.io-client'
 
-const PC_CONFIG = {
+const FALLBACK_ICE = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    {
-      urls: [
-        'turn:openrelay.metered.ca:80',
-        'turn:openrelay.metered.ca:443',
-        'turn:openrelay.metered.ca:443?transport=tcp',
-      ],
-      username: 'openrelayproject',
-      credential: 'openrelayproject',
-    },
   ],
+}
+
+function defaultIce() {
+  return FALLBACK_ICE
 }
 
 function queueCandidate(map, key, candidate) {
@@ -36,6 +31,7 @@ export default function CameraStream({ match, isCreator, onModeChange }) {
   const [localStream, setLocalStream] = useState(null)
   const [remoteStream, setRemoteStream] = useState(null)
   const [audioOn, setAudioOn] = useState(false)
+  const [iceReady, setIceReady] = useState(false)
 
   const socketRef = useRef(null)
   const pcs = useRef(new Map())
@@ -44,6 +40,27 @@ export default function CameraStream({ match, isCreator, onModeChange }) {
   const localVideoRef = useRef(null)
   const remoteVideoRef = useRef(null)
   const localStreamRef = useRef(null)
+  const iceRef = useRef(defaultIce())
+
+  useEffect(() => {
+    fetch('/api/config')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((cfg) => {
+        const servers = FALLBACK_ICE.iceServers.slice()
+        const t = cfg?.turn
+        if (t?.host && t?.username) {
+          const base = `turn:${t.host}:${t.port || '3478'}`
+          servers.push({
+            urls: [`${base}?transport=tcp`, base],
+            username: t.username,
+            credential: t.password,
+          })
+        }
+        iceRef.current = { iceServers: servers }
+      })
+      .catch(() => {})
+      .finally(() => setIceReady(true))
+  }, [])
 
   const room = `match:${match.id}`
   const send = (event, payload) => socketRef.current?.emit(event, payload)
@@ -85,7 +102,7 @@ export default function CameraStream({ match, isCreator, onModeChange }) {
   const setupBroadcasterPc = (remoteId) => {
     const stream = localStreamRef.current
     if (!stream) return null
-    const pc = new RTCPeerConnection(PC_CONFIG)
+    const pc = new RTCPeerConnection(iceRef.current)
     pcs.current.set(remoteId, pc)
     stream.getTracks().forEach((t) => pc.addTrack(t, stream))
     pc.onconnectionstatechange = () => {
@@ -192,7 +209,7 @@ export default function CameraStream({ match, isCreator, onModeChange }) {
   useEffect(() => () => stopCamera(), [])
 
   useEffect(() => {
-    if (isCreator || !match.id) return
+    if (isCreator || !match.id || !iceReady) return
 
     const socket = io()
     socketRef.current = socket
@@ -202,7 +219,7 @@ export default function CameraStream({ match, isCreator, onModeChange }) {
 
     socket.on('offer', ({ from, sdp }) => {
       if (!pc) {
-        pc = new RTCPeerConnection(PC_CONFIG)
+        pc = new RTCPeerConnection(iceRef.current)
         pc.ontrack = (e) => {
           if (e.streams[0]) {
             setRemoteStream(e.streams[0])
@@ -247,7 +264,7 @@ export default function CameraStream({ match, isCreator, onModeChange }) {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isCreator, match.id])
+  }, [isCreator, match.id, iceReady])
 
   if (isCreator) {
     return (
