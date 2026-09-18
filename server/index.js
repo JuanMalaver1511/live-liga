@@ -50,6 +50,11 @@ io.on('connection', (socket) => {
 })
 
 const dist = path.join(__dirname, '..', 'dist')
+
+app.get('/api/config', (_req, res) => {
+  res.json({ pin: process.env.ORGANIZER_PIN || '2255' })
+})
+
 if (process.env.NODE_ENV !== 'development') {
   app.use(express.static(dist))
   app.get(/.*/, (_req, res) => res.sendFile(path.join(dist, 'index.html')))

@@ -28,7 +28,7 @@ function TeamSide({ team, score, side, isCreator, onScore }) {
   )
 }
 
-export default function Scoreboard({ match, onScore, isCreator, onEdit, onReset }) {
+export default function Scoreboard({ match, onScore, isCreator, onEdit, onReset, onLogout }) {
   const [copied, setCopied] = useState(false)
   const [mode, setMode] = useState('link')
 
@@ -62,8 +62,9 @@ export default function Scoreboard({ match, onScore, isCreator, onEdit, onReset 
         <div className="topbar-actions">
           {isCreator && (
             <>
-              <button type="button" className="btn-ghost" onClick={onReset}>Reiniciar</button>
+              <button type="button" className="btn-ghost" onClick={onReset} title="Poner el marcador en 0">↺ Reiniciar</button>
               <button type="button" className="btn-ghost" onClick={onEdit}>✏️ Editar</button>
+              <button type="button" className="btn-ghost" onClick={onLogout}>Salir</button>
             </>
           )}
           <button type="button" className="btn-share" onClick={handleShare}>

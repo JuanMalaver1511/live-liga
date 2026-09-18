@@ -16,11 +16,53 @@ const EMPTY_MATCH = {
   awayScore: 0,
 }
 
-function TeamEditor({ label, team, onChange }) {
+const STEPS = [
+  { id: 0, label: 'Partido', emoji: '🏆' },
+  { id: 1, label: 'Equipos', emoji: '⚽' },
+  { id: 2, label: 'Transmisión', emoji: '📡' },
+]
+
+function StepPartido({ form, set }) {
   return (
-    <div className="team-editor">
-      <h3>{label}</h3>
-      <div className="shield-picker">
+    <div className="wizard-step fade-in-step">
+      <div className="field">
+        <span>Nombre del campeonato o torneo *</span>
+        <input
+          type="text"
+          placeholder="Ej: Copa de Barrio Los Pinos"
+          value={form.tournament}
+          autoFocus
+          onChange={(e) => set({ tournament: e.target.value })}
+        />
+      </div>
+      <div className="grid-2">
+        <label className="field">
+          <span>Título del partido <em>(opcional)</em></span>
+          <input
+            type="text"
+            placeholder="Ej: Semifinal"
+            value={form.matchTitle}
+            onChange={(e) => set({ matchTitle: e.target.value })}
+          />
+        </label>
+        <label className="field">
+          <span>Fecha y hora</span>
+          <input
+            type="datetime-local"
+            value={form.dateTime}
+            onChange={(e) => set({ dateTime: e.target.value })}
+          />
+        </label>
+      </div>
+    </div>
+  )
+}
+
+function TeamMini({ title, team, onChange, accent }) {
+  return (
+    <div className="team-mini" style={{ '--team': team.color, borderTopColor: team.color }}>
+      <h3>{title}</h3>
+      <div className="shield-picker mini">
         {SHIELDS.map((s) => (
           <button
             key={s}
@@ -33,59 +75,125 @@ function TeamEditor({ label, team, onChange }) {
         ))}
       </div>
       <label className="field">
-        <span>Nombre del equipo</span>
+        <span>{title === 'Local' ? 'Nombre del local' : 'Nombre del visitante'} *</span>
         <input
           type="text"
-          placeholder="Ej: Los Leones FC"
-          value={team.name}
+          placeholder={title === 'Local' ? 'Ej: Los Leones FC' : 'Ej: Estrellas del Sur'}
           maxLength={24}
+          value={team.name}
           onChange={(e) => onChange({ ...team, name: e.target.value })}
         />
       </label>
-      <div className="color-picker">
-        {COLORS.map((c) => (
-          <button
-            key={c}
-            type="button"
-            aria-label={`color ${c}`}
-            className={`color-opt ${team.color === c ? 'selected' : ''}`}
-            style={{ background: c }}
-            onClick={() => onChange({ ...team, color: c })}
-          />
-        ))}
-        <label className="color-custom" style={{ background: 'conic-gradient(from 0deg, #ef4444, #22c55e, #3b82f6, #f59e0b, #ef4444)' }}>
-          <input
-            type="color"
-            value={/^#[0-9a-fA-F]{6}$/.test(team.color) ? team.color : '#e11d48'}
-            onChange={(e) => onChange({ ...team, color: e.target.value })}
-          />
-        </label>
-      </div>
-      <div className="team-preview" style={{ '--team': team.color, background: team.color }}>
-        <span className="preview-shield">{team.emoji}</span>
-        <span className="preview-name">{team.name || 'Nombre del equipo'}</span>
+      <div className="color-row">
+        <span className="color-row-label">Color</span>
+        <div className="color-picker">
+          {COLORS.map((c) => (
+            <button
+              key={c}
+              type="button"
+              aria-label={`color ${c}`}
+              className={`color-opt ${team.color === c ? 'selected' : ''}`}
+              style={{ background: c }}
+              onClick={() => onChange({ ...team, color: c })}
+            />
+          ))}
+          <label className="color-custom" style={{ background: `conic-gradient(from 0deg, ${team.color}, #fff, ${team.color})` }}>
+            <input
+              type="color"
+              value={/^#[0-9a-fA-F]{6}$/.test(team.color) ? team.color : '#e11d48'}
+              onChange={(e) => onChange({ ...team, color: e.target.value })}
+            />
+          </label>
+        </div>
       </div>
     </div>
   )
 }
 
-export default function CreateMatch({ match, onStart }) {
+function StepEquipos({ form, set }) {
+  const setHome = (home) => set({ home })
+  const setAway = (away) => set({ away })
+  const swap = () => set({ home: form.away, away: form.home })
+  return (
+    <div className="wizard-step fade-in-step">
+      <div className="teams-grid wizard-teams">
+        <TeamMini title="Local" team={form.home} onChange={setHome} />
+        <button type="button" className="vs-swap" onClick={swap} title="Intercambiar equipos">
+          <span className="vs-swap-label">VS</span>
+          <span className="vs-swap-hint">cambiar</span>
+        </button>
+        <TeamMini title="Visitante" team={form.away} onChange={setAway} />
+      </div>
+    </div>
+  )
+}
+
+function StepTransmision({ form, set }) {
+  return (
+    <div className="wizard-step fade-in-step">
+      <div className="trans-option">
+        <div className="trans-option-head">
+          <span className="trans-option-emoji">🔗</span>
+          <div>
+            <p>Enlace de una transmisión existente</p>
+            <small>Facebook Live, YouTube, Twitch o TikTok. Se reproduce dentro de la plataforma.</small>
+          </div>
+        </div>
+        <label className="field">
+          <div className="input-icon">
+            <span className="input-icon-sym">🌐</span>
+            <input
+              type="url"
+              placeholder="Ej: https://www.facebook.com/…"
+              value={form.streamUrl}
+              onChange={(e) => set({ streamUrl: e.target.value })}
+            />
+          </div>
+        </label>
+        <label className="field">
+          <span>Código de inserción (embed) <em>· opcional, más confiable</em></span>
+          <textarea
+            rows="3"
+            spellCheck="false"
+            placeholder="<iframe src=&#34;…&#34;></iframe>"
+            value={form.embedCode}
+            onChange={(e) => set({ embedCode: e.target.value })}
+          />
+        </label>
+      </div>
+
+      <div className="trans-option">
+        <div className="trans-option-head">
+          <span className="trans-option-emoji">🎥</span>
+          <div>
+            <p>O transmití con tu cámara</p>
+            <small>Nada de enlaces: iniciás el directo con cámara y micrófono al entrar al marcador.</small>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default function CreateMatch({ match, onStart, onGoLive, onLogout }) {
+  const [step, setStep] = useState(0)
   const [form, setForm] = useState(() =>
     match ? JSON.parse(JSON.stringify(match)) : JSON.parse(JSON.stringify(EMPTY_MATCH))
   )
 
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
-  const setHome = (home) => set({ home })
-  const setAway = (away) => set({ away })
 
-  const valid =
-    form.tournament.trim() &&
-    form.home.name.trim() &&
-    form.away.name.trim()
+  const validStep = () => {
+    if (step === 0) return !!form.tournament.trim()
+    if (step === 1) return !!(form.home.name.trim() && form.away.name.trim())
+    return true
+  }
 
-  const handleSubmit = (e) => {
+  const next = () => (step < 2 ? setStep(step + 1) : null)
+  const back = () => setStep(Math.max(0, step - 1))
+
+  const submit = (e) => {
     e.preventDefault()
-    if (!valid) return
     onStart({
       ...form,
       homeScore: Number(form.homeScore || 0),
@@ -95,99 +203,73 @@ export default function CreateMatch({ match, onStart }) {
 
   return (
     <div className="setup-page">
-      <header className="app-header">
+      <header className="setup-top">
         <div className="brand">
           <span className="brand-logo" aria-hidden="true" />
           <div>
             <h1>Liga Live</h1>
-            <p>Banner de transmisión deportiva</p>
+            <p>Nuevo evento</p>
           </div>
+        </div>
+        <div className="setup-top-actions">
+          {onGoLive && (
+            <button type="button" className="btn-ghost" onClick={onGoLive}>▶ Ver mi transmisión</button>
+          )}
+          <button type="button" className="btn-ghost" onClick={onLogout}>Salir</button>
         </div>
       </header>
 
-      <form className="setup-card" onSubmit={handleSubmit}>
-        <h2 className="setup-title">Armá tu transmisión</h2>
-        <p className="setup-subtitle">Completá los datos del encuentro y en un clic vas al marcador en vivo con tu video.</p>
-
-        <div className="section-label">Partido</div>
-        <div className="grid-2">
-          <label className="field">
-            <span>Nombre del campeonato / torneo</span>
-            <input
-              type="text"
-              placeholder="Ej: Copa de Barrio Los Pinos"
-              value={form.tournament}
-              onChange={(e) => set({ tournament: e.target.value })}
-            />
-          </label>
-          <label className="field">
-            <span>Título del partido <em>(opcional)</em></span>
-            <input
-              type="text"
-              placeholder="Ej: Semifinal · Jornada 3"
-              value={form.matchTitle}
-              onChange={(e) => set({ matchTitle: e.target.value })}
-            />
-          </label>
+      <form className="setup-card" onSubmit={submit}>
+        <div className="wizard-progress" aria-label="Progreso">
+          {STEPS.map((s) => {
+            const state = s.id === step ? 'current' : s.id < step ? 'done' : 'todo'
+            return (
+              <button
+                key={s.id}
+                type="button"
+                className={`wizard-step-pill ${state}`}
+                onClick={() => setStep(s.id)}
+              >
+                <span className="wizard-step-num">{state === 'done' ? '✓' : s.id + 1}</span>
+                <span className="wizard-step-text">{s.emoji} {s.label}</span>
+              </button>
+            )
+          })}
         </div>
 
-        <label className="field field-date">
-          <span>Fecha y hora del encuentro</span>
-          <input
-            type="datetime-local"
-            value={form.dateTime}
-            onChange={(e) => set({ dateTime: e.target.value })}
-          />
-        </label>
+        {step === 0 && <StepPartido form={form} set={set} />}
+        {step === 1 && <StepEquipos form={form} set={set} />}
+        {step === 2 && <StepTransmision form={form} set={set} />}
 
-        <div className="section-label">Equipos</div>
-        <div className="teams-grid">
-          <TeamEditor label="Equipo local" team={form.home} onChange={setHome} />
-          <div className="vs-divider">VS</div>
-          <TeamEditor label="Equipo visitante" team={form.away} onChange={setAway} />
+        <div className="wizard-nav">
+          {step > 0 ? (
+            <button type="button" className="btn-ghost wizard-back" onClick={back}>← Volver</button>
+          ) : (
+            <span />
+          )}
+
+          {step < 2 ? (
+            <button type="button" className="btn-primary wizard-continue" disabled={!validStep()} onClick={next}>
+              Continuar →
+            </button>
+          ) : (
+            <button type="submit" className="btn-primary wizard-continue">
+              ¡Ir al marcador en vivo!
+              <span className="btn-live-dot" />
+            </button>
+          )}
         </div>
 
-        <div className="section-label">Transmisión en vivo</div>
-        <label className="field">
-          <span>Link de la transmisión</span>
-          <div className="input-icon">
-            <span className="input-icon-sym">🔗</span>
-            <input
-              type="url"
-              placeholder="Ej: https://www.facebook.com/… o https://youtu.be/…"
-              value={form.streamUrl}
-              onChange={(e) => set({ streamUrl: e.target.value })}
-            />
-          </div>
-          <small>Funciona con Facebook Live, YouTube, Twitch y TikTok (link del video o <code>@usuario/live</code>). Si el link no se puede incrustar, se intenta igual dentro de la plataforma.</small>
-        </label>
-
-        <label className="field">
-          <span>O pega el código de inserción (embed) <em>(opcional · más confiable)</em></span>
-          <textarea
-            rows="3"
-            spellCheck="false"
-            placeholder="<iframe src=&#34;https://www.facebook.com/plugins/video.php?…&#34; …></iframe>"
-            value={form.embedCode}
-            onChange={(e) => set({ embedCode: e.target.value })}
-          />
-          <small>
-            En Facebook abrí tu transmisión → menú <strong>…</strong> → <strong>Insertar</strong> y copiá el código. En YouTube: <strong>Compartir → Insertar</strong>. En TikTok: <strong>Compartir → Copiar código de inserción</strong>. Ese código reproduce el video exactamente dentro de la plataforma.
-          </small>
-        </label>
-
-        <button type="submit" className="btn-primary" disabled={!valid}>
-          {match?.id ? 'Guardar y empezar' : '¡Empezar transmisión!'}
-          <span className="btn-live-dot" />
-        </button>
-        {!valid && (
-          <p className="form-hint">Completa el nombre del torneo y ambos equipos para continuar.</p>
+        {!validStep() && step < 2 && (
+          <p className="form-hint">
+            {step === 0
+              ? 'Escribí el nombre del torneo para continuar.'
+              : 'Completá el nombre de ambos equipos para continuar.'}
+          </p>
         )}
       </form>
 
-      <footer className="app-footer">
-        Hecho con ⚽ para el fútbol de barrio · Compartí el link y que toda la banda vote el gol
-      </footer>
+      <footer className="app-footer">Hecho con ⚽ para el fútbol de barrio</footer>
     </div>
   )
 }
