@@ -28,6 +28,7 @@ export default function CameraStream({ match, isCreator, onModeChange }) {
   const remotePending = useRef(new Map())
   const localVideoRef = useRef(null)
   const remoteVideoRef = useRef(null)
+  const localStreamRef = useRef(null)
 
   const room = `match:${match.id}`
   const send = (event, payload) => socketRef.current?.emit(event, payload)
@@ -60,10 +61,16 @@ export default function CameraStream({ match, isCreator, onModeChange }) {
     }
   }, [remoteStream])
 
+  useEffect(() => {
+    localStreamRef.current = localStream
+  }, [localStream])
+
   const setupBroadcasterPc = (remoteId) => {
+    const stream = localStreamRef.current
+    if (!stream) return null
     const pc = new RTCPeerConnection(PC_CONFIG)
     pcs.current.set(remoteId, pc)
-    localStream.getTracks().forEach((t) => pc.addTrack(t, localStream))
+    stream.getTracks().forEach((t) => pc.addTrack(t, stream))
     pc.onconnectionstatechange = () => {
       if (['failed', 'closed', 'disconnected'].includes(pc.connectionState)) {
         closePc(remoteId)
@@ -75,6 +82,7 @@ export default function CameraStream({ match, isCreator, onModeChange }) {
 
   const connectToViewer = (remoteId) => {
     const pc = setupBroadcasterPc(remoteId)
+    if (!pc) return
     pc.onicecandidate = (e) => {
       if (!e.candidate) return
       if (pc.remoteDescription) send('ice', { to: remoteId, candidate: e.candidate })
@@ -95,6 +103,7 @@ export default function CameraStream({ match, isCreator, onModeChange }) {
         video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
         audio: true,
       })
+      localStreamRef.current = stream
       setLocalStream(stream)
       setRunning(true)
       setLive(true)
@@ -149,6 +158,7 @@ export default function CameraStream({ match, isCreator, onModeChange }) {
 
   const stopCamera = () => {
     localStream?.getTracks().forEach((t) => t.stop())
+    localStreamRef.current = null
     const ids = [...pcs.current.keys()]
     ids.forEach(closePc)
     socketRef.current?.disconnect()
