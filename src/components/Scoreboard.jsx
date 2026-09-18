@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { io } from 'socket.io-client'
 import StreamPlayer from './StreamPlayer.jsx'
 import CameraStream from './CameraStream.jsx'
 
@@ -36,11 +37,41 @@ export default function Scoreboard({
   onFinish,
   onReopen,
   onLogout,
+  onModeChange,
 }) {
   const [copied, setCopied] = useState(false)
-  const [mode, setMode] = useState('link')
+  const [mode, setMode] = useState(() => match.streamMode || 'link')
+  const modeSocketRef = useRef(null)
 
   const finished = match.status === 'finalizado'
+  const room = `match:${match.id}`
+
+  useEffect(() => {
+    if (!match.id) return
+    const socket = io()
+    modeSocketRef.current = socket
+    socket.emit('join', { room, role: isCreator ? 'organizer' : 'watcher' })
+    if (!isCreator) {
+      socket.on('stream-mode', ({ mode: m }) => setMode(m))
+    }
+    return () => {
+      socket.disconnect()
+      modeSocketRef.current = null
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCreator, match.id])
+
+  useEffect(() => {
+    if (isCreator && modeSocketRef.current) {
+      modeSocketRef.current.emit('stream-mode', { room, mode })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, isCreator])
+
+  const selectMode = (m) => {
+    setMode(m)
+    if (isCreator) onModeChange?.(m)
+  }
 
   const shareUrl = () =>
     `${window.location.origin}${window.location.pathname}?id=${encodeURIComponent(match.id)}`
@@ -132,26 +163,41 @@ export default function Scoreboard({
       </section>
 
       <main className="stream-section">
-        <div className="stream-tabs" role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mode === 'link'}
-            className={`stream-tab ${mode === 'link' ? 'active' : ''}`}
-            onClick={() => setMode('link')}
-          >
-            🔗 Enlace externo
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mode === 'camera'}
-            className={`stream-tab ${mode === 'camera' ? 'active' : ''}`}
-            onClick={() => setMode('camera')}
-          >
-            🎥 Cámara directo
-          </button>
-        </div>
+        {!isCreator && (
+          <div className="stream-tabs stream-tabs-mini" role="presentation">
+            <button
+              type="button"
+              aria-hidden="true"
+              className="stream-tab active"
+              tabIndex={-1}
+            >
+              {mode === 'camera' ? '🎥 Transmisión con cámara' : '🔗 Transmisión externa'}
+            </button>
+          </div>
+        )}
+
+        {isCreator && (
+          <div className="stream-tabs" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === 'link'}
+              className={`stream-tab ${mode === 'link' ? 'active' : ''}`}
+              onClick={() => selectMode('link')}
+            >
+              🔗 Enlace externo
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === 'camera'}
+              className={`stream-tab ${mode === 'camera' ? 'active' : ''}`}
+              onClick={() => selectMode('camera')}
+            >
+              🎥 Cámara directo
+            </button>
+          </div>
+        )}
 
         {mode === 'camera' ? (
           <CameraStream match={match} isCreator={isCreator} />

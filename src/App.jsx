@@ -200,6 +200,13 @@ export default function App() {
     saveMatch(next)
   }
 
+  const handleModeChange = (streamMode) => {
+    if (!isCreator) return
+    const next = { ...match, streamMode }
+    persist(next)
+    saveMatch(next)
+  }
+
   if (loading) {
     return (
       <div className="loader-page">
@@ -220,6 +227,7 @@ export default function App() {
         onFinish={handleFinish}
         onReopen={handleReopen}
         onLogout={handleLogout}
+        onModeChange={handleModeChange}
       />
     )
   }

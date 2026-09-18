@@ -55,7 +55,7 @@ const pool = process.env.DATABASE_URL
 
 const memory = new Map()
 
-const MATCH_COLUMNS = [
+const COLUMNS = [
   'id',
   'tournament',
   'match_title',
@@ -70,6 +70,7 @@ const MATCH_COLUMNS = [
   'away_score',
   'stream_url',
   'embed_code',
+  'stream_mode',
   'status',
   'updated_at',
 ]
@@ -92,10 +93,12 @@ async function initDb() {
       away_score INT NOT NULL DEFAULT 0,
       stream_url TEXT NOT NULL DEFAULT '',
       embed_code TEXT NOT NULL DEFAULT '',
+      stream_mode TEXT NOT NULL DEFAULT 'link',
       status TEXT NOT NULL DEFAULT 'live',
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
     )
   `)
+  await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS stream_mode TEXT NOT NULL DEFAULT 'link'`).catch(() => {})
   console.log('PostgreSQL listo')
 }
 
@@ -110,7 +113,7 @@ async function getMatch(id) {
 async function upsertMatch(m) {
   if (pool) {
     await pool.query(
-      `INSERT INTO matches (${MATCH_COLUMNS.join(', ')}) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'live',now())
+      `INSERT INTO matches (${COLUMNS.join(', ')}) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'live',now())
        ON CONFLICT (id) DO UPDATE SET
          tournament=EXCLUDED.tournament,
          match_title=EXCLUDED.match_title,
@@ -125,6 +128,7 @@ async function upsertMatch(m) {
          away_score=EXCLUDED.away_score,
          stream_url=EXCLUDED.stream_url,
          embed_code=EXCLUDED.embed_code,
+         stream_mode=EXCLUDED.stream_mode,
          updated_at=now()`,
       toParams(m)
     )
@@ -154,6 +158,7 @@ function fromRow(r) {
     awayScore: Number(r.away_score) || 0,
     streamUrl: r.stream_url,
     embedCode: r.embed_code,
+    streamMode: r.stream_mode || 'link',
     status: r.status || 'live',
     updatedAt: r.updated_at,
   }
@@ -177,6 +182,7 @@ function toParams(m) {
     Number(m.awayScore || 0),
     String(m.streamUrl || ''),
     String(m.embedCode || ''),
+    String(m.streamMode || 'link'),
   ]
 }
 
@@ -242,6 +248,11 @@ io.on('connection', (socket) => {
   socket.on('offer', ({ to, sdp }) => socket.to(to).emit('offer', { from: socket.id, sdp }))
   socket.on('answer', ({ to, sdp }) => socket.to(to).emit('answer', { from: socket.id, sdp }))
   socket.on('ice', ({ to, candidate }) => socket.to(to).emit('ice', { from: socket.id, candidate }))
+
+  socket.on('stream-mode', ({ room, mode }) => {
+    if (mode !== 'link' && mode !== 'camera') return
+    socket.to(room).emit('stream-mode', { mode })
+  })
 
   socket.on('disconnect', () => {
     for (const [room, peers] of rooms) {
