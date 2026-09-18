@@ -694,6 +694,12 @@ input {
   display: block;
 }
 
+.tiktok-live-frame {
+  aspect-ratio: 9 / 16;
+  max-width: 420px;
+  margin-inline: auto;
+}
+
 .stream-fallback {
   display: block;
   text-align: center;

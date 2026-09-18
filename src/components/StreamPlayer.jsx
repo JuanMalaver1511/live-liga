@@ -6,6 +6,28 @@ export function extractIframeSrc(embedCode) {
   return m ? m[1] : null
 }
 
+function isDirectPage(src, host) {
+  try {
+    const u = new URL(src)
+    if (u.hostname.includes('facebook.com') && u.pathname.startsWith('/plugins')) return false
+    if (u.hostname.includes('youtube.com') && u.pathname.startsWith('/embed')) return false
+    if (u.hostname === 'player.twitch.tv') return false
+    if (u.hostname.includes('tiktok.com') && (u.pathname.startsWith('/player/') || u.pathname.startsWith('/embed/'))) return false
+    return true
+  } catch {
+    return false
+  }
+}
+
+function normalizeEmbedSrc(src) {
+  if (!src) return null
+  if (isDirectPage(src)) {
+    const parsed = parseStreamUrl(src)
+    if (parsed.type !== 'link' && parsed.type !== 'none') return parsed
+  }
+  return { type: 'embed', src }
+}
+
 export function parseStreamUrl(url) {
   if (!url) return { type: 'none' }
   try {
@@ -88,7 +110,7 @@ function EmbedFrame({ src, title }) {
 export default function StreamPlayer({ url, embedCode, title }) {
   const stream = useMemo(() => {
     const fromCode = extractIframeSrc(embedCode)
-    if (fromCode) return { type: 'embed', src: fromCode }
+    if (fromCode) return normalizeEmbedSrc(fromCode)
     return parseStreamUrl(url)
   }, [url, embedCode])
 
@@ -114,7 +136,7 @@ export default function StreamPlayer({ url, embedCode, title }) {
 
   if (stream.type === 'tiktok-live') {
     return (
-      <div className="stream-frame-wrap">
+      <div className="stream-frame-wrap tiktok-live-frame">
         <iframe
           className="stream-frame"
           src={stream.src}
