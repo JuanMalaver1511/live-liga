@@ -792,73 +792,9 @@ input {
 
 /* ---------- TikTok live CTA ---------- */
 
-.stream-cta {
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: linear-gradient(160deg, #1a1a1a, #140f0f 55%);
-  padding: 26px;
-  text-align: center;
-  box-shadow: var(--shadow);
-}
-
-.stream-cta-top {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  margin-bottom: 14px;
-}
-
-.stream-cta-badge {
-  background: var(--live);
-  color: #fff;
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  border-radius: 6px;
-  padding: 5px 10px;
-}
-
-.stream-cta-brand {
-  font-family: var(--font-body);
-  font-size: 17px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-}
-
-.stream-cta-text {
-  color: var(--muted);
-  font-size: 13.5px;
-  line-height: 1.6;
-  margin: 0 0 18px;
-  max-width: 420px;
-  margin-inline: auto;
-}
-
-.tiktok-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  background: linear-gradient(90deg, #25f4ee, #fe2c55);
-  color: #fff;
-  font-weight: 800;
-  font-size: 15px;
-  padding: 13px 30px;
-  border-radius: 999px;
-  text-decoration: none;
-  letter-spacing: 0.02em;
-  transition: transform 0.15s, box-shadow 0.15s;
-}
-
-.tiktok-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 14px 30px -12px rgba(254, 44, 85, 0.6);
-}
-
-.tiktok-icon {
-  font-size: 20px;
-  font-weight: 900;
-  text-shadow: 0 0 12px rgba(255, 255, 255, 0.5);
+.stream-fallback a {
+  color: var(--accent);
+  font-weight: 600;
 }
 
 /* ---------- Barra inferior móvil (espectadores) ---------- */
@@ -983,10 +919,6 @@ input {
 
   .stream-fallback {
     font-size: 12.5px;
-  }
-
-  .stream-cta {
-    padding: 22px 16px;
   }
 
   .live-footer {

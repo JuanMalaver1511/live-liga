@@ -41,8 +41,15 @@ export function parseStreamUrl(url) {
       const segs = u.pathname.split('/').filter(Boolean)
       const id = segs.find((s) => /^\d+$/.test(s) && s.length >= 8) || u.searchParams.get('videoId')
       if (id) return { type: 'tiktok', src: `https://www.tiktok.com/player/v1/${id}?autoplay=1` }
-      const live = u.pathname.match(/^\/@([^/]+)\/live/)
-      if (live) return { type: 'tiktok-live', openUrl: u.href }
+      const live = u.pathname.match(/^\/@?([^/]+)\/live/)
+      if (live) {
+        const embedDomain = window.location.hostname
+        return {
+          type: 'tiktok-live',
+          openUrl: u.href,
+          src: `https://www.tiktok.com/embed/live/${encodeURIComponent(live[1])}?autoplay=1&muted=1&controls=1&embed_domain=${embedDomain}`,
+        }
+      }
       return { type: 'link' }
     }
 
@@ -107,19 +114,19 @@ export default function StreamPlayer({ url, embedCode, title }) {
 
   if (stream.type === 'tiktok-live') {
     return (
-      <div className="stream-cta">
-        <div className="stream-cta-top">
-          <span className="stream-cta-badge">EN VIVO</span>
-          <span className="stream-cta-brand">TikTok</span>
+      <div className="stream-frame-wrap">
+        <iframe
+          className="stream-frame"
+          src={stream.src}
+          title="Transmisión en vivo de TikTok"
+          allowFullScreen
+          allow="autoplay; fullscreen; encrypted-media; picture-in-picture; web-share"
+        />
+        <div className="stream-fallback">
+          <strong>Vista previa oficial de TikTok (iframe).</strong> Para que reproduzca en tu dominio,
+          TikTok pide registrarlo: entrar a <a href="https://developers.tiktok.com/docs/apply" target="_blank" rel="noreferrer">developers.tiktok.com/docs/apply</a> y solicitar acceso a "Embed LIVE". Mientras tanto podés verlo en
+          <a href={stream.openUrl} target="_blank" rel="noreferrer"> TikTok →</a>
         </div>
-        <p className="stream-cta-text">
-          TikTok no permite ver transmisiones en vivo dentro de otras webs.
-          Tocá el botón y se abre al instante (en el celular se abre directo en la app).
-        </p>
-        <a className="tiktok-btn" href={stream.openUrl} target="_blank" rel="noreferrer">
-          <span className="tiktok-icon">♪</span>
-          Ver en TikTok
-        </a>
       </div>
     )
   }
