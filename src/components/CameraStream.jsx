@@ -32,6 +32,7 @@ export default function CameraStream({ match, isCreator, onModeChange }) {
   const [remoteStream, setRemoteStream] = useState(null)
   const [audioOn, setAudioOn] = useState(false)
   const [iceReady, setIceReady] = useState(false)
+  const [reconnecting, setReconnecting] = useState(false)
 
   const socketRef = useRef(null)
   const pcs = useRef(new Map())
@@ -211,57 +212,96 @@ export default function CameraStream({ match, isCreator, onModeChange }) {
   useEffect(() => {
     if (isCreator || !match.id || !iceReady) return
 
-    const socket = io()
-    socketRef.current = socket
-    socket.emit('join', { room, role: 'viewer' })
-
     let pc = null
+    let socket = null
+    let reconnectTimer = null
+    let stopped = false
 
-    socket.on('offer', ({ from, sdp }) => {
-      if (!pc) {
-        pc = new RTCPeerConnection(iceRef.current)
-        pc.ontrack = (e) => {
-          if (e.streams[0]) {
-            setRemoteStream(e.streams[0])
-            setLive(true)
-          }
-        }
-        pc.onicecandidate = (e) => {
-          if (e.candidate) send('ice', { to: from, candidate: e.candidate })
-        }
-        pc.onconnectionstatechange = () => {
-          if (pc?.connectionState === 'failed') {
-            setError('No pudimos conectar con el organizador. Probá recargar la página.')
-          }
-        }
-      }
-      pc.setRemoteDescription(sdp)
-        .then(() => {
-          flushCandidates(remotePending.current, from, pc)
-          return pc.createAnswer()
-        })
-        .then((answer) => pc.setLocalDescription(answer))
-        .then(() => send('answer', { to: from, sdp: pc.localDescription }))
-        .catch(() => {})
-    })
-
-    socket.on('ice', ({ from, candidate }) => {
-      if (pc?.remoteDescription) pc.addIceCandidate(candidate).catch(() => {})
-      else queueCandidate(remotePending.current, from, candidate)
-    })
-
-    socket.on('peer-left', () => {
-      setRemoteStream(null)
-      setLive(false)
-    })
-
-    return () => {
-      socket.disconnect()
+    const cleanup = () => {
+      socket?.disconnect()
+      socket = null
       if (pc) {
         try {
           pc.close()
         } catch {}
       }
+      pc = null
+      setReconnecting(false)
+    }
+
+    const scheduleReconnect = () => {
+      if (reconnectTimer || stopped) return
+      setReconnecting(true)
+      setLive(false)
+      setRemoteStream(null)
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null
+        if (stopped) return
+        cleanup()
+        connect()
+      }, 2500)
+    }
+
+    const connect = () => {
+      if (stopped) return
+      socket = io()
+      socketRef.current = socket
+      socket.emit('join', { room, role: 'viewer' })
+
+      socket.on('offer', ({ from, sdp }) => {
+        if (!pc) {
+          pc = new RTCPeerConnection(iceRef.current)
+          pc.ontrack = (e) => {
+            if (e.streams[0]) {
+              setRemoteStream(e.streams[0])
+              setLive(true)
+              setReconnecting(false)
+            }
+          }
+          pc.onicecandidate = (e) => {
+            if (e.candidate) send('ice', { to: from, candidate: e.candidate })
+          }
+          pc.onconnectionstatechange = () => {
+            if (!pc) return
+            const st = pc.connectionState
+            if (st === 'connected') {
+              setLive(true)
+              setReconnecting(false)
+              setError(null)
+            } else if (st === 'failed' || st === 'disconnected' || st === 'closed') {
+              scheduleReconnect()
+            }
+          }
+        }
+        pc.setRemoteDescription(sdp)
+          .then(() => {
+            flushCandidates(remotePending.current, from, pc)
+            return pc.createAnswer()
+          })
+          .then((answer) => pc.setLocalDescription(answer))
+          .then(() => send('answer', { to: from, sdp: pc.localDescription }))
+          .catch(() => {})
+      })
+
+      socket.on('ice', ({ from, candidate }) => {
+        if (pc?.remoteDescription) pc.addIceCandidate(candidate).catch(() => {})
+        else queueCandidate(remotePending.current, from, candidate)
+      })
+
+      socket.on('peer-left', () => {
+        if (reconnectTimer) return
+        setRemoteStream(null)
+        setLive(false)
+        scheduleReconnect()
+      })
+    }
+
+    connect()
+
+    return () => {
+      stopped = true
+      if (reconnectTimer) clearTimeout(reconnectTimer)
+      cleanup()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCreator, match.id, iceReady])
@@ -309,11 +349,15 @@ export default function CameraStream({ match, isCreator, onModeChange }) {
           <video ref={remoteVideoRef} className="cam-video" playsInline autoPlay muted={!audioOn} controls />
           <div className={`cam-cover ${live ? 'hidden' : ''}`}>
             <div className="cam-placeholder">
-              <span className="cam-placeholder-icon">⏳</span>
+              <span className="cam-placeholder-icon">{reconnecting ? '🔁' : '⏳'}</span>
               <p>
-                {remoteStream || live ? 'Cargando transmisión…' : 'Esperando que el organizador active la cámara…'}
+                {reconnecting
+                  ? 'La conexión se cayó. Reconectando…'
+                  : remoteStream || live
+                    ? 'Cargando transmisión…'
+                    : 'Esperando que el organizador active la cámara…'}
               </p>
-              <small>Si no aparece en unos segundos, fijate de recargar la página.</small>
+              <small>Se reconecta solo si se corta.</small>
             </div>
           </div>
           {live && !audioOn && (
