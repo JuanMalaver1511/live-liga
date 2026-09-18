@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import StreamPlayer from './StreamPlayer.jsx'
+import CameraStream from './CameraStream.jsx'
 import { encodeMatch } from '../App.jsx'
 
 function TeamSide({ team, score, side, isCreator, onScore }) {
@@ -29,6 +30,7 @@ function TeamSide({ team, score, side, isCreator, onScore }) {
 
 export default function Scoreboard({ match, onScore, isCreator, onEdit, onReset }) {
   const [copied, setCopied] = useState(false)
+  const [mode, setMode] = useState('link')
 
   const shareUrl = () => {
     const { currentId, ...shareable } = match
@@ -99,11 +101,36 @@ export default function Scoreboard({ match, onScore, isCreator, onEdit, onReset 
       </section>
 
       <main className="stream-section">
-        <StreamPlayer
-          url={match.streamUrl}
-          embedCode={match.embedCode}
-          title={`${match.home.name} vs ${match.away.name}`}
-        />
+        <div className="stream-tabs" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === 'link'}
+            className={`stream-tab ${mode === 'link' ? 'active' : ''}`}
+            onClick={() => setMode('link')}
+          >
+            🔗 Enlace externo
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === 'camera'}
+            className={`stream-tab ${mode === 'camera' ? 'active' : ''}`}
+            onClick={() => setMode('camera')}
+          >
+            🎥 Cámara directo
+          </button>
+        </div>
+
+        {mode === 'camera' ? (
+          <CameraStream match={match} isCreator={isCreator} />
+        ) : (
+          <StreamPlayer
+            url={match.streamUrl}
+            embedCode={match.embedCode}
+            title={`${match.home.name} vs ${match.away.name}`}
+          />
+        )}
       </main>
 
       <footer className="live-footer">
