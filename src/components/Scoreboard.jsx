@@ -110,6 +110,12 @@ export default function Scoreboard({ match, onScore, isCreator, onEdit, onReset 
           ? '👈 Compartí el enlace para que todos vean el marcador en vivo'
           : 'Marcador en vivo — Liga Live'}
       </footer>
+
+      <div className="mobile-action-bar">
+        <button type="button" className="btn-share mobile-share" onClick={handleShare}>
+          {copied ? '✓ Enlace copiado' : '🔗 Compartir este en vivo'}
+        </button>
+      </div>
     </div>
   )
 }

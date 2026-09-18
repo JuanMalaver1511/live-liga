@@ -41,10 +41,9 @@ export function parseStreamUrl(url) {
       const segs = u.pathname.split('/').filter(Boolean)
       const id = segs.find((s) => /^\d+$/.test(s) && s.length >= 8) || u.searchParams.get('videoId')
       if (id) return { type: 'tiktok', src: `https://www.tiktok.com/player/v1/${id}?autoplay=1` }
-      const liveUser = u.pathname.match(/^\/@([^/]+)\/live/)
-      if (liveUser)
-        return { type: 'tiktok-live', src: `https://www.tiktok.com/embed/v2/${encodeURIComponent(liveUser[1])}/live?autoplay=1` }
-      return { type: 'unknown', src: u.href }
+      const live = u.pathname.match(/^\/@([^/]+)\/live/)
+      if (live) return { type: 'tiktok-live', openUrl: u.href }
+      return { type: 'link' }
     }
 
     return { type: 'unknown', src: u.href }
@@ -103,6 +102,25 @@ export default function StreamPlayer({ url, embedCode, title }) {
         <span className="stream-link-title">{title || 'Abrir transmisión'}</span>
         <span className="stream-link-open">Abrir →</span>
       </a>
+    )
+  }
+
+  if (stream.type === 'tiktok-live') {
+    return (
+      <div className="stream-cta">
+        <div className="stream-cta-top">
+          <span className="stream-cta-badge">EN VIVO</span>
+          <span className="stream-cta-brand">TikTok</span>
+        </div>
+        <p className="stream-cta-text">
+          TikTok no permite ver transmisiones en vivo dentro de otras webs.
+          Tocá el botón y se abre al instante (en el celular se abre directo en la app).
+        </p>
+        <a className="tiktok-btn" href={stream.openUrl} target="_blank" rel="noreferrer">
+          <span className="tiktok-icon">♪</span>
+          Ver en TikTok
+        </a>
+      </div>
     )
   }
 
