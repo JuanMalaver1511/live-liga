@@ -1,7 +1,21 @@
 import { useEffect, useRef, useState } from 'react'
 import { io } from 'socket.io-client'
 
-const PC_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
+const PC_CONFIG = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    {
+      urls: [
+        'turn:openrelay.metered.ca:80',
+        'turn:openrelay.metered.ca:443',
+        'turn:openrelay.metered.ca:443?transport=tcp',
+      ],
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
+  ],
+}
 
 function queueCandidate(map, key, candidate) {
   if (!map.has(key)) map.set(key, [])
@@ -21,6 +35,7 @@ export default function CameraStream({ match, isCreator, onModeChange }) {
   const [live, setLive] = useState(false)
   const [localStream, setLocalStream] = useState(null)
   const [remoteStream, setRemoteStream] = useState(null)
+  const [audioOn, setAudioOn] = useState(false)
 
   const socketRef = useRef(null)
   const pcs = useRef(new Map())
@@ -57,9 +72,11 @@ export default function CameraStream({ match, isCreator, onModeChange }) {
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
       remoteVideoRef.current.srcObject = remoteStream
-      remoteVideoRef.current.play().catch(() => {})
+      remoteVideoRef.current.muted = !audioOn
+      const p = remoteVideoRef.current.play()
+      if (p && typeof p.catch === 'function') p.catch(() => setAudioOn(false))
     }
-  }, [remoteStream])
+  }, [remoteStream, audioOn])
 
   useEffect(() => {
     localStreamRef.current = localStream
@@ -272,7 +289,7 @@ export default function CameraStream({ match, isCreator, onModeChange }) {
     <div className="cam-panel">
       <div className="cam-stage">
         <div className="cam-preview-wrap">
-          <video ref={remoteVideoRef} className="cam-video" playsInline autoPlay controls />
+          <video ref={remoteVideoRef} className="cam-video" playsInline autoPlay muted={!audioOn} controls />
           <div className={`cam-cover ${live ? 'hidden' : ''}`}>
             <div className="cam-placeholder">
               <span className="cam-placeholder-icon">⏳</span>
@@ -282,6 +299,11 @@ export default function CameraStream({ match, isCreator, onModeChange }) {
               <small>Si no aparece en unos segundos, fijate de recargar la página.</small>
             </div>
           </div>
+          {live && !audioOn && (
+            <button type="button" className="cam-sound" onClick={() => setAudioOn(true)}>
+              🔊 Activar sonido
+            </button>
+          )}
         </div>
       </div>
       {error && <p className="cam-error">{error}</p>}

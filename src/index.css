@@ -908,6 +908,26 @@ textarea {
   right: 14px;
 }
 
+.cam-sound {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  z-index: 3;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  font-weight: 700;
+  font-size: 12.5px;
+  padding: 9px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 8px 20px -8px rgba(0, 0, 0, 0.6);
+}
+
+.cam-sound:hover {
+  background: var(--panel-3);
+}
+
 .cam-placeholder {
   display: flex;
   flex-direction: column;
