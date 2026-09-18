@@ -65,11 +65,10 @@ export function parseStreamUrl(url) {
       if (id) return { type: 'tiktok', src: `https://www.tiktok.com/player/v1/${id}?autoplay=1` }
       const live = u.pathname.match(/^\/@?([^/]+)\/live/)
       if (live) {
-        const embedDomain = window.location.hostname
         return {
           type: 'tiktok-live',
           openUrl: u.href,
-          src: `https://www.tiktok.com/embed/live/${encodeURIComponent(live[1])}?autoplay=1&muted=1&controls=1&embed_domain=${embedDomain}`,
+          src: `https://www.tiktok.com/embed/v2/${encodeURIComponent(live[1])}/live?autoplay=1&muted=1`,
         }
       }
       return { type: 'link' }
@@ -136,20 +135,20 @@ export default function StreamPlayer({ url, embedCode, title }) {
 
   if (stream.type === 'tiktok-live') {
     return (
-      <div className="stream-frame-wrap tiktok-live-frame">
-        <iframe
-          className="stream-frame"
-          src={stream.src}
-          title="Transmisión en vivo de TikTok"
-          allowFullScreen
-          allow="autoplay; fullscreen; encrypted-media; picture-in-picture; web-share"
-        />
-        <div className="stream-fallback">
-          <strong>Vista previa oficial de TikTok (iframe).</strong> Para que reproduzca en tu dominio,
-          TikTok pide registrarlo: entrar a <a href="https://developers.tiktok.com/docs/apply" target="_blank" rel="noreferrer">developers.tiktok.com/docs/apply</a> y solicitar acceso a "Embed LIVE". Mientras tanto podés verlo en
-          <a href={stream.openUrl} target="_blank" rel="noreferrer"> TikTok →</a>
+      <>
+        <div className="stream-frame-wrap">
+          <iframe
+            className="stream-frame"
+            src={stream.src}
+            title="Transmisión en vivo de TikTok"
+            allowFullScreen
+            allow="autoplay; fullscreen; encrypted-media; picture-in-picture; web-share"
+          />
         </div>
-      </div>
+        <div className="stream-fallback standalone">
+          <a href={stream.openUrl} target="_blank" rel="noreferrer">Si el video no carga, abrirlo en TikTok →</a>
+        </div>
+      </>
     )
   }
 

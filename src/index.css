@@ -694,10 +694,11 @@ input {
   display: block;
 }
 
-.tiktok-live-frame {
-  aspect-ratio: 9 / 16;
-  max-width: 420px;
-  margin-inline: auto;
+.stream-fallback.standalone {
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 var(--radius) var(--radius);
+  margin-top: -4px;
 }
 
 .stream-fallback {
